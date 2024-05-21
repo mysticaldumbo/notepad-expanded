@@ -1,7 +1,8 @@
 import sys
 import subprocess
 from PyQt5.QtWidgets import QApplication, QMainWindow, QTextEdit, QFileDialog, QAction, QVBoxLayout, QWidget, QPlainTextEdit, QPushButton, QMessageBox, QMenu, QInputDialog
-from PyQt5.QtGui import QCursor, QKeySequence
+from PyQt5.QtGui import QCursor, QKeySequence, QSyntaxHighlighter, QTextCharFormat, QColor, QFont
+from PyQt5.QtCore import Qt, QRegExp
 import webbrowser
 import pyperclip
 
@@ -12,11 +13,52 @@ class OutputTextEdit(QPlainTextEdit):
     def keyPressEvent(self, event):
         pass
 
+class PythonHighlighter(QSyntaxHighlighter):
+    def __init__(self, document):
+        super().__init__(document)
+        self.highlighting_rules = []
+
+        keyword_format = QTextCharFormat()
+        keyword_format.setForeground(Qt.red)
+        keyword_format.setFontWeight(QFont.Bold)
+        keywords = [
+            "def", "class", "import", "from", "return", "if", "elif", "else", 
+            "for", "while", "try", "except", "finally", "with", "as", "pass", 
+            "break", "continue", "in", "is", "not", "and", "or", "print", 
+            "exec", "eval"
+        ]
+        for keyword in keywords:
+            pattern = QRegExp(f"\\b{keyword}\\b")
+            self.highlighting_rules.append((pattern, keyword_format))
+
+        string_format = QTextCharFormat()
+        string_format.setForeground(Qt.green)
+        pattern = QRegExp(r'"[^"\\]*(\\.[^"\\]*)*"')
+        self.highlighting_rules.append((pattern, string_format))
+        pattern = QRegExp(r"'[^'\\]*(\\.[^'\\]*)*'")
+        self.highlighting_rules.append((pattern, string_format))
+
+        comment_format = QTextCharFormat()
+        comment_format.setForeground(Qt.darkGray)
+        pattern = QRegExp(r"#.*")
+        self.highlighting_rules.append((pattern, comment_format))
+
+    def highlightBlock(self, text):
+        for pattern, fmt in self.highlighting_rules:
+            expression = QRegExp(pattern)
+            index = expression.indexIn(text)
+            while index >= 0:
+                length = expression.matchedLength()
+                self.setFormat(index, length, fmt)
+                index = expression.indexIn(text, index + length)
+
 class TextEditor(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.text_edit = QTextEdit()
+        self.highlighter = PythonHighlighter(self.text_edit.document())
+
         self.output_edit = OutputTextEdit()
         self.clear_terminal_button = QPushButton('Clear Terminal')
         self.clear_terminal_button.clicked.connect(self.clear_terminal)
